@@ -27,8 +27,8 @@ const _GoDBErrorCode_name = "TupleNotFoundErrorPageFullErrorIncompatibleTypesErr
 
 var _GoDBErrorCode_index = [...]uint8{0, 18, 31, 53, 70, 88, 107, 117, 136, 152, 170, 191, 204, 227}
 
-func (i GoDBErrorCode) String() string {
-	if i < 0 || i >= GoDBErrorCode(len(_GoDBErrorCode_index)-1) {
+func (i ErrorCode) String() string {
+	if i < 0 || i >= ErrorCode(len(_GoDBErrorCode_index)-1) {
 		return "GoDBErrorCode(" + strconv.FormatInt(int64(i), 10) + ")"
 	}
 	return _GoDBErrorCode_name[_GoDBErrorCode_index[i]:_GoDBErrorCode_index[i+1]]

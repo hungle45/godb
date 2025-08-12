@@ -62,10 +62,10 @@ func (f *HeapFile) LoadFromCSV(file *os.File, hasHeader bool, sep string, skipLa
 		cnt++
 		desc := f.Descriptor()
 		if desc == nil || desc.Fields == nil {
-			return GoDBError{MalformedDataError, "Descriptor was nil"}
+			return Error{MalformedDataError, "Descriptor was nil"}
 		}
 		if numFields != len(desc.Fields) {
-			return GoDBError{MalformedDataError, fmt.Sprintf("LoadFromCSV:  line %d (%s) does not have expected number of fields (expected %d, got %d)", cnt, line, len(f.Descriptor().Fields), numFields)}
+			return Error{MalformedDataError, fmt.Sprintf("LoadFromCSV:  line %d (%s) does not have expected number of fields (expected %d, got %d)", cnt, line, len(f.Descriptor().Fields), numFields)}
 		}
 		if cnt == 1 && hasHeader {
 			continue
@@ -77,7 +77,7 @@ func (f *HeapFile) LoadFromCSV(file *os.File, hasHeader bool, sep string, skipLa
 				field = strings.TrimSpace(field)
 				floatVal, err := strconv.ParseFloat(field, 64)
 				if err != nil {
-					return GoDBError{TypeMismatchError, fmt.Sprintf("LoadFromCSV: couldn't convert value %s to int, tuple %d", field, cnt)}
+					return Error{TypeMismatchError, fmt.Sprintf("LoadFromCSV: couldn't convert value %s to int, tuple %d", field, cnt)}
 				}
 				intValue := int(floatVal)
 				newFields = append(newFields, IntField{int64(intValue)})

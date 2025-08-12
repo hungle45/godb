@@ -6,32 +6,32 @@ import (
 	"strings"
 )
 
-type GoDBErrorCode int
+type ErrorCode int
 
 const (
-	TupleNotFoundError      GoDBErrorCode = iota
-	PageFullError           GoDBErrorCode = iota
-	IncompatibleTypesError  GoDBErrorCode = iota
-	TypeMismatchError       GoDBErrorCode = iota
-	MalformedDataError      GoDBErrorCode = iota
-	BufferPoolFullError     GoDBErrorCode = iota
-	ParseError              GoDBErrorCode = iota
-	DuplicateTableError     GoDBErrorCode = iota
-	NoSuchTableError        GoDBErrorCode = iota
-	AmbiguousNameError      GoDBErrorCode = iota
-	IllegalOperationError   GoDBErrorCode = iota
-	DeadlockError           GoDBErrorCode = iota
-	IllegalTransactionError GoDBErrorCode = iota
+	TupleNotFoundError ErrorCode = iota
+	PageFullError
+	IncompatibleTypesError
+	TypeMismatchError
+	MalformedDataError
+	BufferPoolFullError
+	ParseError
+	DuplicateTableError
+	NoSuchTableError
+	AmbiguousNameError
+	IllegalOperationError
+	DeadlockError
+	IllegalTransactionError
 )
 
-//go:generate stringer -type=GoDBErrorCode
+//go:generate stringer -type=ErrorCode
 
-type GoDBError struct {
-	code      GoDBErrorCode
+type Error struct {
+	code      ErrorCode
 	errString string
 }
 
-func (e GoDBError) Error() string {
+func (e Error) Error() string {
 	return fmt.Sprintf("err: %s; msg: %s", e.code.String(), e.errString)
 }
 

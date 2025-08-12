@@ -41,7 +41,7 @@ func (c *Catalog) SaveToFile(catalogFile string, rootPath string) error {
 func (c *Catalog) dropTable(tableName string) error {
 	_, ok := c.tableMap[tableName]
 	if !ok {
-		return GoDBError{NoSuchTableError, "couldn't find table to drop"}
+		return Error{NoSuchTableError, "couldn't find table to drop"}
 	}
 
 	delete(c.tableMap, tableName)
@@ -98,7 +98,7 @@ func (c *Catalog) parseCatalogFile() error {
 		line := strings.ToLower(scanner.Text())
 		sep := strings.Split(line, "(")
 		if len(sep) != 2 {
-			return GoDBError{ParseError, fmt.Sprintf("expected one paren in catalog entry, got %d (%s)", len(sep), line)}
+			return Error{ParseError, fmt.Sprintf("expected one paren in catalog entry, got %d (%s)", len(sep), line)}
 		}
 		tableName := strings.TrimSpace(sep[0])
 		rest := strings.Trim(sep[1], "()")
@@ -109,7 +109,7 @@ func (c *Catalog) parseCatalogFile() error {
 			f := strings.TrimSpace(f)
 			nameType := strings.Split(f, " ")
 			if len(nameType) < 2 || len(nameType) > 4 {
-				return GoDBError{ParseError, fmt.Sprintf("malformed catalog entry %s (line %s)", nameType, line)}
+				return Error{ParseError, fmt.Sprintf("malformed catalog entry %s (line %s)", nameType, line)}
 			}
 
 			name := nameType[0]
@@ -126,7 +126,7 @@ func (c *Catalog) parseCatalogFile() error {
 			case "text":
 				fieldType.Ftype = StringType
 			default:
-				return GoDBError{ParseError, fmt.Sprintf("unknown type %s (line %s)", nameType[1], line)}
+				return Error{ParseError, fmt.Sprintf("unknown type %s (line %s)", nameType[1], line)}
 			}
 			fieldArray = append(fieldArray, fieldType)
 		}
@@ -157,7 +157,7 @@ func NewCatalogFromFile(catalogFile string, bp *BufferPool, rootPath string) (*C
 func (c *Catalog) addTable(named string, desc TupleDesc) (DBFile, error) {
 	f, err := c.GetTable(named)
 	if err == nil {
-		return f, GoDBError{DuplicateTableError, fmt.Sprintf("a table named '%s' already exists", named)}
+		return f, Error{DuplicateTableError, fmt.Sprintf("a table named '%s' already exists", named)}
 	}
 
 	hf, err := NewHeapFile(c.tableNameToFile(named), &desc, c.bufferPool)
@@ -190,7 +190,7 @@ func (c *Catalog) tableNameToFile(tableName string) string {
 func (c *Catalog) GetTableInfo(named string) (*Table, error) {
 	t, ok := c.tableMap[named]
 	if !ok {
-		return nil, GoDBError{NoSuchTableError, fmt.Sprintf("no table '%s' found", named)}
+		return nil, Error{NoSuchTableError, fmt.Sprintf("no table '%s' found", named)}
 	}
 	return t, nil
 }
@@ -209,7 +209,7 @@ func (c *Catalog) GetTableInfoId(id int) (*Table, error) {
 			return t, nil
 		}
 	}
-	return nil, GoDBError{NoSuchTableError, fmt.Sprintf("no table '%d' found", id)}
+	return nil, Error{NoSuchTableError, fmt.Sprintf("no table '%d' found", id)}
 }
 
 func (c *Catalog) GetTableInfoDBFile(f DBFile) (*Table, error) {
@@ -218,7 +218,7 @@ func (c *Catalog) GetTableInfoDBFile(f DBFile) (*Table, error) {
 			return t, nil
 		}
 	}
-	return nil, GoDBError{NoSuchTableError, "table not found"}
+	return nil, Error{NoSuchTableError, "table not found"}
 }
 
 // Get the statistics for a table.

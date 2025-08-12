@@ -213,10 +213,10 @@ func subStrFunc(args []any) any {
 func (f *FuncExpr) EvalExpr(t *Tuple) (DBValue, error) {
 	fType, exists := funcs[f.op]
 	if !exists {
-		return nil, GoDBError{ParseError, fmt.Sprintf("unknown function %s", f.op)}
+		return nil, Error{ParseError, fmt.Sprintf("unknown function %s", f.op)}
 	}
 	if len(f.args) != len(fType.argTypes) {
-		return nil, GoDBError{ParseError, fmt.Sprintf("function %s expected %d args", f.op, len(fType.argTypes))}
+		return nil, Error{ParseError, fmt.Sprintf("function %s expected %d args", f.op, len(fType.argTypes))}
 	}
 	argvals := make([]any, len(fType.argTypes))
 	for i, argType := range fType.argTypes {
@@ -227,7 +227,7 @@ func (f *FuncExpr) EvalExpr(t *Tuple) (DBValue, error) {
 			case IntType:
 				typeName = "int"
 			}
-			return nil, GoDBError{ParseError, fmt.Sprintf("function %s expected arg of type %s", f.op, typeName)}
+			return nil, Error{ParseError, fmt.Sprintf("function %s expected arg of type %s", f.op, typeName)}
 		}
 		val, err := arg.EvalExpr(t)
 		if err != nil {
@@ -247,5 +247,5 @@ func (f *FuncExpr) EvalExpr(t *Tuple) (DBValue, error) {
 	case StringType:
 		return StringField{result.(string)}, nil
 	}
-	return nil, GoDBError{ParseError, "unknown result type in function"}
+	return nil, Error{ParseError, "unknown result type in function"}
 }

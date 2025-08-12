@@ -154,7 +154,7 @@ func checkNameInTablesOrSubqueries(table string, field string, c *Catalog, subqu
 			for _, testField := range qFs {
 				if testField.Fname == field {
 					if table != "" {
-						return "", GoDBError{AmbiguousNameError, fmt.Sprintf("multiple possible table names for field %s in select expression", field)}
+						return "", Error{AmbiguousNameError, fmt.Sprintf("multiple possible table names for field %s in select expression", field)}
 					}
 					table = testField.TableQualifier
 				}
@@ -167,7 +167,7 @@ func checkNameInTablesOrSubqueries(table string, field string, c *Catalog, subqu
 			for _, t2 := range ts {
 				if t.name == t2.tableName {
 					if table != "" {
-						return "", GoDBError{AmbiguousNameError, fmt.Sprintf("multiple possible table names for field %s in select expression", field)}
+						return "", Error{AmbiguousNameError, fmt.Sprintf("multiple possible table names for field %s in select expression", field)}
 					}
 					table = t.name
 				}
@@ -200,7 +200,7 @@ func (lsn *LogicalSelectNode) getTableField(c *Catalog, subqueries []*LogicalPla
 			} else if fieldName == "" && tabName == "" {
 				fieldName = newFieldName
 			} else if newTabName != "" {
-				return "", "", GoDBError{AmbiguousNameError, fmt.Sprintf("multiple possible table names for field %s in select expression", fieldName)}
+				return "", "", Error{AmbiguousNameError, fmt.Sprintf("multiple possible table names for field %s in select expression", fieldName)}
 			}
 		}
 		tabName, err := checkNameInTablesOrSubqueries(tabName, fieldName, c, subqueries, ts)
@@ -291,7 +291,7 @@ func parseWhere(c *Catalog, subqueries []*LogicalPlan, ts []*LogicalTableNode, e
 		}
 		if lTable != "" && rTable != "" && lTable != rTable { //join
 			if op != OpEq {
-				return nil, nil, GoDBError{IllegalOperationError, "only equality joins are supported"}
+				return nil, nil, Error{IllegalOperationError, "only equality joins are supported"}
 			}
 			return nil, []*LogicalJoinNode{{left, right, op}}, nil
 		} else {
@@ -299,7 +299,7 @@ func parseWhere(c *Catalog, subqueries []*LogicalPlan, ts []*LogicalTableNode, e
 		}
 
 	default:
-		return nil, nil, GoDBError{ParseError, "where expression with non value or column on RHS (disjunctions and nested where expressions are not supported)"}
+		return nil, nil, Error{ParseError, "where expression with non value or column on RHS (disjunctions and nested where expressions are not supported)"}
 	}
 }
 
@@ -359,7 +359,7 @@ func parseFrom(c *Catalog, t sqlparser.TableExpr) ([]*LogicalTableNode, []*Logic
 			return nil, nil, nil, err
 		}
 		if joinTable.Join != "join" {
-			return nil, nil, nil, GoDBError{ParseError, fmt.Sprintf("unsupported join type %s", joinTable.Join)}
+			return nil, nil, nil, Error{ParseError, fmt.Sprintf("unsupported join type %s", joinTable.Join)}
 		}
 		tabList := append(leftTables, rightTables...)
 		subPlanList := append(leftSubplans, rightSubplans...)
@@ -370,7 +370,7 @@ func parseFrom(c *Catalog, t sqlparser.TableExpr) ([]*LogicalTableNode, []*Logic
 		return tabList, subPlanList, append(leftJoins, append(rightJoins, joins...)...), nil
 
 	}
-	return nil, nil, nil, GoDBError{ParseError, "unknown query type in parseFrom"}
+	return nil, nil, nil, Error{ParseError, "unknown query type in parseFrom"}
 }
 
 func isAgg(f string) bool {
@@ -383,12 +383,12 @@ func parseExpr(c *Catalog, expr sqlparser.Expr, alias string) (*LogicalSelectNod
 		funName := strings.ToLower(sqlparser.String(expr.Name))
 		if isAgg(funName) {
 			if len(expr.Exprs) != 1 {
-				return nil, GoDBError{ParseError, fmt.Sprintf("expected one argument to aggregate %s in select list", sqlparser.String(expr.Name))}
+				return nil, Error{ParseError, fmt.Sprintf("expected one argument to aggregate %s in select list", sqlparser.String(expr.Name))}
 			}
 			star, ok := expr.Exprs[0].(*sqlparser.StarExpr)
 			if ok {
 				if funName != "count" {
-					return nil, GoDBError{ParseError, "got * in non-count aggregate"}
+					return nil, Error{ParseError, "got * in non-count aggregate"}
 				}
 				subField := NewFieldSelectNode(strings.ToLower(sqlparser.String(star.TableName)), "*", "")
 				field := NewAggrSelectNode(funName, &subField, alias)
@@ -452,7 +452,7 @@ func parseExpr(c *Catalog, expr sqlparser.Expr, alias string) (*LogicalSelectNod
 		field := NewConstSelectNode(str, alias)
 		return &field, nil
 	default:
-		return nil, GoDBError{ParseError, fmt.Sprintf("unsupported expression type %s in select list", reflect.TypeOf(expr))}
+		return nil, Error{ParseError, fmt.Sprintf("unsupported expression type %s in select list", reflect.TypeOf(expr))}
 	}
 
 }
@@ -468,7 +468,7 @@ func parseSelect(c *Catalog, stmt sqlparser.SelectExpr) (*LogicalSelectNode, err
 		alias := strings.ToLower(sqlparser.String(exprAlias.As))
 		return parseExpr(c, exprAlias.Expr, alias)
 	default:
-		return nil, GoDBError{ParseError, fmt.Sprintf("unsupported expression type %s in select list", reflect.TypeOf(exprAlias))}
+		return nil, Error{ParseError, fmt.Sprintf("unsupported expression type %s in select list", reflect.TypeOf(exprAlias))}
 
 	}
 }
@@ -578,7 +578,7 @@ func fieldToOp(tab string, field string, opMap map[string]*PlanNode) (*PlanNode,
 	node := opMap[tab]
 
 	if node == nil && tab != "" {
-		return nil, GoDBError{ParseError, fmt.Sprintf("no table in catalog matching '%s'", tab)}
+		return nil, Error{ParseError, fmt.Sprintf("no table in catalog matching '%s'", tab)}
 	}
 	if node == nil {
 		for _, candNode := range opMap {
@@ -590,14 +590,14 @@ func fieldToOp(tab string, field string, opMap map[string]*PlanNode) (*PlanNode,
 					if node == nil || tab == f.TableQualifier {
 						node = candNode
 					} else if node != nil && field != "*" {
-						return nil, GoDBError{ParseError, fmt.Sprintf("field name '%s' is ambiguous", field)}
+						return nil, Error{ParseError, fmt.Sprintf("field name '%s' is ambiguous", field)}
 					}
 				}
 			}
 		}
 	}
 	if node == nil {
-		return nil, GoDBError{ParseError, fmt.Sprintf("no field in catalog matching '%s'", field)}
+		return nil, Error{ParseError, fmt.Sprintf("no field in catalog matching '%s'", field)}
 	}
 	return node, nil
 }
@@ -619,7 +619,7 @@ func fieldNameToField(table string, field string, node *PlanNode) (FieldType, er
 	if gotField {
 		return best, nil
 	}
-	return FieldType{}, GoDBError{ParseError, fmt.Sprintf("no field in catalog matching '%s'", field)}
+	return FieldType{}, Error{ParseError, fmt.Sprintf("no field in catalog matching '%s'", field)}
 }
 
 type PlanNode struct {
@@ -634,10 +634,10 @@ func (s *LogicalSelectNode) generateExpr(c *Catalog, inputDesc *TupleDesc, table
 	case ExprField:
 		var field FieldType
 		if inputDesc == nil {
-			return nil, "", GoDBError{ParseError, "Tuple desc must be non-null for expression fields"}
+			return nil, "", Error{ParseError, "Tuple desc must be non-null for expression fields"}
 		}
 		if tableMap == nil {
-			return nil, "", GoDBError{ParseError, "Table map must be non-null for expression fields"}
+			return nil, "", Error{ParseError, "Table map must be non-null for expression fields"}
 		}
 		if s.cachedField != nil {
 			field = *s.cachedField
@@ -653,7 +653,7 @@ func (s *LogicalSelectNode) generateExpr(c *Catalog, inputDesc *TupleDesc, table
 				field, _ = fieldNameToField(s.table, s.field, selectNode)
 				_, err = findFieldInTd(field, inputDesc)
 				if err != nil {
-					return nil, "", GoDBError{ParseError, fmt.Sprintf("cannot select field %s that is not child expression", s.field)}
+					return nil, "", Error{ParseError, fmt.Sprintf("cannot select field %s that is not child expression", s.field)}
 				}
 			} else {
 				field = inputDesc.Fields[fieldNo]
@@ -714,7 +714,7 @@ func (s *LogicalSelectNode) generateExpr(c *Catalog, inputDesc *TupleDesc, table
 		fe := FuncExpr{*s.funcOp, exprs}
 		return &fe, fieldName, nil
 	}
-	return nil, "", GoDBError{ParseError, "unhandled expression type in select list"}
+	return nil, "", Error{ParseError, "unhandled expression type in select list"}
 
 }
 
@@ -983,12 +983,12 @@ func makePhysicalPlan(c *Catalog, plan *LogicalPlan) (*OperatorCard, error) {
 
 		leftStats := tableStats[leftName]
 		if leftStats == nil {
-			return nil, GoDBError{ParseError, fmt.Sprintf("no stats for lhs table %s, join %v, tables %v", leftName, j.left, tableMap)}
+			return nil, Error{ParseError, fmt.Sprintf("no stats for lhs table %s, join %v, tables %v", leftName, j.left, tableMap)}
 		}
 
 		rightStats := tableStats[rightName]
 		if rightStats == nil {
-			return nil, GoDBError{ParseError, fmt.Sprintf("no stats for rhs table %s, join %v, tables %v", rightName, j, tableMap)}
+			return nil, Error{ParseError, fmt.Sprintf("no stats for rhs table %s, join %v, tables %v", rightName, j, tableMap)}
 		}
 
 		join_order[i] = &JoinNode{
@@ -1082,7 +1082,7 @@ func makePhysicalPlan(c *Catalog, plan *LogicalPlan) (*OperatorCard, error) {
 			first = false
 		} else {
 			if curOp != node.op {
-				return nil, GoDBError{ParseError, "not all tables are joined, cross products are not supported in GoDB"}
+				return nil, Error{ParseError, "not all tables are joined, cross products are not supported in GoDB"}
 			}
 		}
 	}
@@ -1149,7 +1149,7 @@ func makePhysicalPlan(c *Catalog, plan *LogicalPlan) (*OperatorCard, error) {
 				case "count":
 					as = &CountAggState{}
 				default:
-					return nil, GoDBError{IllegalOperationError, fmt.Sprintf("unknown aggregate function %s", *s.funcOp)}
+					return nil, Error{IllegalOperationError, fmt.Sprintf("unknown aggregate function %s", *s.funcOp)}
 				}
 
 				//make sure name has unique id
@@ -1248,7 +1248,7 @@ func makePhysicalPlan(c *Catalog, plan *LogicalPlan) (*OperatorCard, error) {
 
 func parseInsert(c *Catalog, insStmt *sqlparser.Insert) (Operator, error) {
 	if insStmt.Columns != nil {
-		return nil, GoDBError{ParseError, "GoDB doesn't support inserts of incomplete tuples"}
+		return nil, Error{ParseError, "GoDB doesn't support inserts of incomplete tuples"}
 	}
 	tab := insStmt.Table.Name
 	file, err := c.GetTable(sqlparser.String(tab))
@@ -1296,17 +1296,17 @@ func parseInsert(c *Catalog, insStmt *sqlparser.Insert) (Operator, error) {
 
 func parseDelete(c *Catalog, delStmt *sqlparser.Delete) (Operator, error) {
 	if len(delStmt.TableExprs) > 1 {
-		return nil, GoDBError{ParseError, "godb does not supporting deleting from multiple tables"}
+		return nil, Error{ParseError, "godb does not supporting deleting from multiple tables"}
 	}
 	tables, subplans, joins, err := parseFrom(c, delStmt.TableExprs[0])
 	if err != nil {
 		return nil, err
 	}
 	if len(tables) > 1 {
-		return nil, GoDBError{ParseError, "godb does not supporting deleting from multiple tables"}
+		return nil, Error{ParseError, "godb does not supporting deleting from multiple tables"}
 	}
 	if subplans != nil || joins != nil {
-		return nil, GoDBError{ParseError, "godb does not supporting deleting from multiple tables"}
+		return nil, Error{ParseError, "godb does not supporting deleting from multiple tables"}
 	}
 
 	tableMap := make(map[string]*PlanNode)
@@ -1319,7 +1319,7 @@ func parseDelete(c *Catalog, delStmt *sqlparser.Delete) (Operator, error) {
 			return nil, err
 		}
 		if joins != nil {
-			return nil, GoDBError{ParseError, "godb does not supporting deleting from multiple tables"}
+			return nil, Error{ParseError, "godb does not supporting deleting from multiple tables"}
 		}
 	}
 	var newOp Operator
@@ -1374,7 +1374,7 @@ func processDDL(c *Catalog, ddl *sqlparser.DDL) (QueryType, error) {
 		tabName := sqlparser.String(ddl.NewName.Name)
 		t, _ := c.GetTable(tabName)
 		if t != nil {
-			return UnknownQueryType, GoDBError{ParseError, fmt.Sprintf("table %s already exists", tabName)}
+			return UnknownQueryType, Error{ParseError, fmt.Sprintf("table %s already exists", tabName)}
 		}
 		for i, col := range ddl.TableSpec.Columns {
 			var colType DBType
@@ -1389,7 +1389,7 @@ func processDDL(c *Catalog, ddl *sqlparser.DDL) (QueryType, error) {
 			case "varchar":
 				colType = StringType
 			default:
-				return UnknownQueryType, GoDBError{ParseError, fmt.Sprintf("unsupported column type %s", col.Type.Type)}
+				return UnknownQueryType, Error{ParseError, fmt.Sprintf("unsupported column type %s", col.Type.Type)}
 
 			}
 			fields[i] = FieldType{colName, "", colType}
@@ -1409,7 +1409,7 @@ func processDDL(c *Catalog, ddl *sqlparser.DDL) (QueryType, error) {
 		}
 		return DropTableQueryType, nil
 	default:
-		return UnknownQueryType, GoDBError{ParseError, fmt.Sprintf("unsupported ddl statement %s", ddl.Action)}
+		return UnknownQueryType, Error{ParseError, fmt.Sprintf("unsupported ddl statement %s", ddl.Action)}
 	}
 }
 
@@ -1458,5 +1458,5 @@ func Parse(c *Catalog, query string) (QueryType, Operator, error) {
 		}
 	}
 
-	return UnknownQueryType, nil, GoDBError{ParseError, "invalid query"}
+	return UnknownQueryType, nil, Error{ParseError, "invalid query"}
 }

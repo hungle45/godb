@@ -63,7 +63,7 @@ func (a *Aggregator) Iterator(tid TransactionID) (func() (*Tuple, error), error)
 		return nil, err
 	}
 	if childIter == nil {
-		return nil, GoDBError{MalformedDataError, "child iter unexpectedly nil"}
+		return nil, Error{MalformedDataError, "child iter unexpectedly nil"}
 	}
 
 	// the map that stores the aggregation state of each group
@@ -73,7 +73,7 @@ func (a *Aggregator) Iterator(tid TransactionID) (func() (*Tuple, error), error)
 		for _, as := range a.newAggState {
 			copy := as.Copy()
 			if copy == nil {
-				return nil, GoDBError{MalformedDataError, "aggState Copy unexpectedly returned nil"}
+				return nil, Error{MalformedDataError, "aggState Copy unexpectedly returned nil"}
 			}
 			newAggState = append(newAggState, copy)
 		}

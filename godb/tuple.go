@@ -64,7 +64,7 @@ func findFieldInTd(field FieldType, desc *TupleDesc) (int, error) {
 	for i, f := range desc.Fields {
 		if f.Fname == field.Fname && (f.Ftype == field.Ftype || field.Ftype == UnknownType) {
 			if field.TableQualifier == "" && best != -1 {
-				return 0, GoDBError{AmbiguousNameError, fmt.Sprintf("select name %s is ambiguous", f.Fname)}
+				return 0, Error{AmbiguousNameError, fmt.Sprintf("select name %s is ambiguous", f.Fname)}
 			}
 			if f.TableQualifier == field.TableQualifier || best == -1 {
 				best = i
@@ -74,7 +74,7 @@ func findFieldInTd(field FieldType, desc *TupleDesc) (int, error) {
 	if best != -1 {
 		return best, nil
 	}
-	return -1, GoDBError{IncompatibleTypesError, fmt.Sprintf("field %s.%s not found", field.TableQualifier, field.Fname)}
+	return -1, Error{IncompatibleTypesError, fmt.Sprintf("field %s.%s not found", field.TableQualifier, field.Fname)}
 
 }
 
