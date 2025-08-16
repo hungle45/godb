@@ -69,13 +69,13 @@ type Operator interface {
 type BoolOp int
 
 const (
-	OpGt   BoolOp = iota
-	OpLt   BoolOp = iota
-	OpGe   BoolOp = iota
-	OpLe   BoolOp = iota
-	OpEq   BoolOp = iota
-	OpNeq  BoolOp = iota
-	OpLike BoolOp = iota
+	OpGt BoolOp = iota
+	OpLt
+	OpGe
+	OpLe
+	OpEq
+	OpNeq
+	OpLike
 )
 
 var BoolOpMap = map[string]BoolOp{
@@ -150,4 +150,16 @@ func (i1 StringField) EvalPred(v2 DBValue, op BoolOp) bool {
 	default:
 		return false
 	}
+}
+
+func isCompatibleValueType(t1, t2 DBValue) bool {
+	switch t1.(type) {
+	case IntField:
+		_, ok := t2.(IntField)
+		return ok
+	case StringField:
+		_, ok := t2.(StringField)
+		return ok
+	}
+	return false
 }

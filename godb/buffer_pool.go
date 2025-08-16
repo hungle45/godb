@@ -21,26 +21,26 @@ type BufferPool struct {
 	// TODO: some code goes here
 }
 
-// Create a new BufferPool with the specified number of pages
+// NewBufferPool Create a new BufferPool with the specified number of pages
 func NewBufferPool(numPages int) (*BufferPool, error) {
 	return &BufferPool{}, fmt.Errorf("NewBufferPool not implemented")
 }
 
-// Testing method -- iterate through all pages in the buffer pool
+// FlushAllPages Testing method -- iterate through all pages in the buffer pool
 // and flush them using [DBFile.flushPage]. Does not need to be thread/transaction safe.
 // Mark pages as not dirty after flushing them.
 func (bp *BufferPool) FlushAllPages() {
 	// TODO: some code goes here
 }
 
-// Abort the transaction, releasing locks. Because GoDB is FORCE/NO STEAL, none
+// AbortTransaction Abort the transaction, releasing locks. Because GoDB is FORCE/NO STEAL, none
 // of the pages tid has dirtied will be on disk so it is sufficient to just
 // release locks to abort. You do not need to implement this for lab 1.
 func (bp *BufferPool) AbortTransaction(tid TransactionID) {
 	// TODO: some code goes here
 }
 
-// Commit the transaction, releasing locks. Because GoDB is FORCE/NO STEAL, none
+// CommitTransaction Commit the transaction, releasing locks. Because GoDB is FORCE/NO STEAL, none
 // of the pages tid has dirtied will be on disk, so prior to releasing locks you
 // should iterate through pages and write them to disk.  In GoDB lab3 we assume
 // that the system will not crash while doing this, allowing us to avoid using a
@@ -49,15 +49,14 @@ func (bp *BufferPool) CommitTransaction(tid TransactionID) {
 	// TODO: some code goes here
 }
 
-// Begin a new transaction. You do not need to implement this for lab 1.
-//
+// BeginTransaction Begin a new transaction. You do not need to implement this for lab 1.
 // Returns an error if the transaction is already running.
 func (bp *BufferPool) BeginTransaction(tid TransactionID) error {
 	// TODO: some code goes here
 	return nil
 }
 
-// Retrieve the specified page from the specified DBFile (e.g., a HeapFile), on
+// GetPage Retrieve the specified page from the specified DBFile (e.g., a HeapFile), on
 // behalf of the specified transaction. If a page is not cached in the buffer pool,
 // you can read it from disk uing [DBFile.readPage]. If the buffer pool is full (i.e.,
 // already stores numPages pages), a page should be evicted.  Should not evict
