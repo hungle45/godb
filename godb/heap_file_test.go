@@ -221,7 +221,7 @@ func TestHeapFilePageKey(t *testing.T) {
 	}
 
 	if hf.NumPages() != hf2.NumPages() || hf.NumPages() != 2 {
-		t.Fatalf("Should be two pages here")
+		t.Fatalf("Should be two pool here")
 	}
 
 	for i := 0; i < hf.NumPages(); i++ {
@@ -229,7 +229,7 @@ func TestHeapFilePageKey(t *testing.T) {
 			t.Fatalf("Expected equal pageKey")
 		}
 		if hf.pageKey(i) == hf.pageKey((i+1)%hf.NumPages()) {
-			t.Fatalf("Expected non-equal pageKey for different pages")
+			t.Fatalf("Expected non-equal pageKey for different pool")
 		}
 		if hf.pageKey(i) == hf2.pageKey(i) {
 			t.Fatalf("Expected non-equal pageKey for different heapfiles")
@@ -253,7 +253,7 @@ func TestHeapFileSize(t *testing.T) {
 		t.Fatalf("unexpected error, stat, %s", err.Error())
 	}
 	if info.Size() != int64(PageSize) {
-		t.Fatalf("heap file page is not %d bytes;  NOTE:  This error may be OK, but many implementations that don't write full pages break.", PageSize)
+		t.Fatalf("heap file page is not %d bytes;  NOTE:  This error may be OK, but many implementations that don't write full pool break.", PageSize)
 	}
 }
 
@@ -272,7 +272,7 @@ func TestHeapFileSetDirty(t *testing.T) {
 		}
 	}
 	bp.CommitTransaction(tid)
-	t.Fatalf("Expected error due to all pages in BufferPool being dirty")
+	t.Fatalf("Expected error due to all pool in BufferPool being dirty")
 }
 
 func TestHeapFileDirtyBit(t *testing.T) {

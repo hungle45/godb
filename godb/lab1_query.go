@@ -2,6 +2,7 @@ package godb
 
 import (
 	"fmt"
+	"os"
 )
 
 /*
@@ -24,5 +25,44 @@ Note that you should NOT pass fileName into NewHeapFile -- fileName is a CSV
 file that you should call LoadFromCSV on.
 */
 func computeFieldSum(bp *BufferPool, fileName string, td TupleDesc, sumField string) (int, error) {
-	return 0, fmt.Errorf("computeFieldSum not implemented") // replace me
+	dumpFileName := "_lab1_dump.mat"
+	_ = os.Remove(dumpFileName)
+
+	hf, err := NewHeapFile(dumpFileName, &td, bp)
+	if err != nil {
+		return 0, fmt.Errorf("error creating heap file: %w", err)
+	}
+
+	csvFile, err := os.Open(fileName)
+	if err != nil {
+		return 0, fmt.Errorf("error opening CSV file: %w", err)
+	}
+	defer csvFile.Close()
+
+	if err := hf.LoadFromCSV(csvFile, true, ",", false); err != nil {
+		return 0, fmt.Errorf("error loading CSV file: %w", err)
+	}
+
+	fieldID, err := findFieldInTd(FieldType{Fname: sumField, Ftype: IntType}, &td)
+	if err != nil {
+		return 0, fmt.Errorf("error finding field in tuple descriptor: %w", err)
+	}
+
+	var sumResult int64
+	iter, err := hf.Iterator(0)
+	if err != nil {
+		return 0, fmt.Errorf("error creating iterator: %w", err)
+	}
+	for {
+		tup, err := iter()
+		if err != nil {
+			return 0, fmt.Errorf("error iterating tuples: %w", err)
+		}
+		if tup == nil {
+			break
+		}
+		sumResult += tup.Fields[fieldID].(IntField).Value
+	}
+
+	return int(sumResult), nil
 }

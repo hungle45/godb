@@ -157,7 +157,7 @@ func transactionTestSetUpVarLen(t *testing.T, tupCnt int, pgCnt int) (*BufferPoo
 	}
 	hf.LoadFromCSV(csvFile, false, ",", false)
 	if hf.NumPages() != pgCnt {
-		t.Fatalf("error making test vars; unexpected number of pages")
+		t.Fatalf("error making test vars; unexpected number of pool")
 	}
 
 	tid1 := NewTID()
@@ -382,23 +382,23 @@ func TestTransactionAllDirtyFails(t *testing.T) {
 			t.Fatalf("Heap file should have at least one page after insertion.")
 		}
 	}
-	bp.CommitTransaction(tid) // make three clean pages
+	bp.CommitTransaction(tid) // make three clean pool
 
 	os.Remove(TestingFile2)
 	hf2, _ := NewHeapFile(TestingFile2, &td, bp)
 	tid2 := NewTID()
 	bp.BeginTransaction(tid2)
 
-	for hf2.NumPages() < 3 { // make three dirty pages
+	for hf2.NumPages() < 3 { // make three dirty pool
 		hf2.insertTuple(&t1, tid2)
 		if hf2.NumPages() == 0 {
 			t.Fatalf("Heap file should have at least one page after insertion.")
 		}
 	}
 
-	_, err := bp.GetPage(hf, 0, tid2, ReadPerm) // since bp capacity = 3, should return error due to all dirty pages
+	_, err := bp.GetPage(hf, 0, tid2, ReadPerm) // since bp capacity = 3, should return error due to all dirty pool
 	if err == nil {
-		t.Errorf("Expected error due to all dirty pages")
+		t.Errorf("Expected error due to all dirty pool")
 	}
 }
 

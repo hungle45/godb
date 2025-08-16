@@ -22,7 +22,7 @@ func testLimitCount(t *testing.T, n int) {
 			return
 		}
 
-		// hack to force dirty pages to disk
+		// hack to force dirty pool to disk
 		// because CommitTransaction may not be implemented
 		// yet if this is called in lab 2
 		if i%10 == 0 {

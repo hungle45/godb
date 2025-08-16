@@ -253,7 +253,7 @@ func TestTupleDescEquals(t *testing.T) {
 	TDAssertNotEquals(t, t1.Desc, stringInt) // diff in only Fname
 }
 
-// Unit test for TupleDesc.copy()
+// Unit test for tupleDesc.copy()
 func TestTupleDescCopy(t *testing.T) {
 	singleInt := TupleDesc{Fields: []FieldType{{Ftype: IntType}}}
 	intString := TupleDesc{Fields: []FieldType{{Ftype: IntType}, {Ftype: StringType}}}
@@ -278,7 +278,7 @@ func TestTupleDescCopy(t *testing.T) {
 	TDAssertEquals(t, *tdCpy, *tdCpy2)
 }
 
-// Unit test for TupleDesc.merge()
+// Unit test for tupleDesc.merge()
 func TestTupleDescMerge(t *testing.T) {
 	singleInt := TupleDesc{Fields: []FieldType{{Ftype: IntType}}}
 	stringInt := TupleDesc{Fields: []FieldType{{Ftype: StringType}, {Ftype: IntType}}}

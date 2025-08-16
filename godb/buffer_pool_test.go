@@ -19,7 +19,7 @@ func TestBufferPoolGetPage(t *testing.T) {
 			t.Fatalf("%v", err)
 		}
 
-		// Force dirty pages to disk. CommitTransaction may not be implemented
+		// Force dirty pool to disk. CommitTransaction may not be implemented
 		// yet if this is called in lab 1 or 2.
 		bp.FlushAllPages()
 
@@ -27,7 +27,7 @@ func TestBufferPoolGetPage(t *testing.T) {
 		bp.CommitTransaction(tid)
 	}
 	bp.BeginTransaction(tid)
-	//expect 6 pages
+	//expect 6 pool
 	for i := 0; i < 6; i++ {
 		pg, err := bp.GetPage(hf, i, tid, ReadPerm)
 		if pg == nil || err != nil {
@@ -36,7 +36,7 @@ func TestBufferPoolGetPage(t *testing.T) {
 	}
 	_, err := bp.GetPage(hf, 7, tid, ReadPerm)
 	if err == nil {
-		t.Fatalf("No error when getting page 7 from a file with 6 pages.")
+		t.Fatalf("No error when getting page 7 from a file with 6 pool.")
 	}
 }
 
@@ -53,7 +53,7 @@ func TestSetDirty(t *testing.T) {
 		}
 	}
 	bp.CommitTransaction(tid)
-	t.Fatalf("Expected error due to all pages in BufferPool being dirty")
+	t.Fatalf("Expected error due to all pool in BufferPool being dirty")
 }
 
 // Test is only valid up to Lab 4. In Lab 5 we switch from FORCE/NOSTEAL to NOFORCE/STEAL.
@@ -77,7 +77,7 @@ func TestBufferPoolHoldsMultipleHeapFiles(t *testing.T) {
 	if err1 != nil || err2 != nil || err3 != nil {
 		t.Errorf("The BufferPool should be able to handle multiple files")
 	}
-	// bp contains 2 dirty pages at this point
+	// bp contains 2 dirty pool at this point
 
 	hf2TupCntPerPage := 0
 	for hf2.NumPages() <= 1 {
@@ -86,7 +86,7 @@ func TestBufferPoolHoldsMultipleHeapFiles(t *testing.T) {
 		}
 		hf2TupCntPerPage++
 	}
-	// bp contains 3 dirty pages at this point
+	// bp contains 3 dirty pool at this point
 
 	for i := 0; i < hf2TupCntPerPage-1; i++ {
 		if err := hf2.insertTuple(&t2, tid); err != nil {
@@ -94,7 +94,7 @@ func TestBufferPoolHoldsMultipleHeapFiles(t *testing.T) {
 		}
 	}
 
-	// bp contains 3 dirty pages at this point, including 2 full pages of hf2
+	// bp contains 3 dirty pool at this point, including 2 full pool of hf2
 	_ = hf2.insertTuple(&t2, tid)
 	if err := hf2.insertTuple(&t2, tid); err == nil {
 		t.Errorf("should cause bufferpool dirty page overflow here")

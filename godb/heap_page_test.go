@@ -247,7 +247,7 @@ func TestHeapPageSerialization(t *testing.T) {
 			break
 		}
 		if findEqCount(tup, page.tupleIter()) != findEqCount(tup, page2.tupleIter()) {
-			t.Errorf("Serialization / deserialization doesn't result in identical heap page.")
+			t.Errorf("Tuple %d. Expected %d, got %d", tup.Fields[1], findEqCount(tup, page.tupleIter()), findEqCount(tup, page2.tupleIter()))
 		}
 	}
 }
@@ -274,6 +274,6 @@ func TestHeapPageBufferLen(t *testing.T) {
 	buf, _ := page.toBuffer()
 
 	if buf.Len() != PageSize {
-		t.Fatalf("HeapPage.toBuffer returns buffer of unexpected size;  NOTE:  This error may be OK, but many implementations that don't write full pages break.")
+		t.Fatalf("HeapPage.toBuffer returns buffer of unexpected size %d;  NOTE:  This error may be OK, but many implementations that don't write full pool break.", buf.Len())
 	}
 }

@@ -26,7 +26,7 @@ func NewJoin(left Operator, leftField Expr, right Operator, rightField Expr, max
 // Return a TupleDesc for this join. The returned descriptor should contain the
 // union of the fields in the descriptors of the left and right operators.
 //
-// HINT: use [TupleDesc.merge].
+// HINT: use [tupleDesc.merge].
 func (hj *EqualityJoin) Descriptor() *TupleDesc {
 	// TODO: some code goes here
 	return &TupleDesc{} // replace me

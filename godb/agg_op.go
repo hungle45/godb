@@ -45,7 +45,7 @@ func NewAggregator(emptyAggState []AggState, child Operator) *Aggregator {
 //
 // HINT: for groupByFields, you can use [Expr.GetExprType] to get the FieldType.
 //
-// HINT: use [TupleDesc.merge] to merge the two [TupleDesc]s.
+// HINT: use [tupleDesc.merge] to merge the two [tupleDesc]s.
 func (a *Aggregator) Descriptor() *TupleDesc {
 	// TODO: some code goes here
 	return &TupleDesc{} //replace me
