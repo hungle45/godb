@@ -439,3 +439,10 @@ func (t *Tuple) PrettyPrintString(aligned bool) string {
 	}
 	return outStr
 }
+
+func PrintTuple(t *Tuple) string {
+	if t == nil {
+		return "Tuple{<nil>}"
+	}
+	return fmt.Sprintf("Tuple{%s}", t.PrettyPrintString(false))
+}

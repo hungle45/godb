@@ -774,8 +774,8 @@ func OutputPhysicalPlan(printf func(format string, a ...any), o Operator, indent
 	case *EqualityJoin:
 		printf("%sJoin, %+v == %+v, card:%d\n", indent, exprToStr(op.leftField), exprToStr(op.rightField), oc.Cardinality)
 		indent = indent + "\t"
-		OutputPhysicalPlan(printf, *op.left, indent)
-		OutputPhysicalPlan(printf, *op.right, indent)
+		OutputPhysicalPlan(printf, op.left, indent)
+		OutputPhysicalPlan(printf, op.right, indent)
 	case *Project:
 		selectStr := ""
 		for _, ex := range op.selectFields {

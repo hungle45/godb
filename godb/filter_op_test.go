@@ -19,7 +19,7 @@ func TestFilterInt(t *testing.T) {
 	insertTupleForTest(t, hf, &t1, tid)
 	insertTupleForTest(t, hf, &t2, tid)
 
-	var f FieldType = FieldType{"age", "", IntType}
+	var f = FieldType{"age", "", IntType}
 	filt, err := NewFilter(&ConstExpr{IntField{25}, IntType}, OpGt, &FieldExpr{f}, hf)
 	if err != nil {
 		t.Errorf(err.Error())
