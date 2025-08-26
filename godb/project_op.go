@@ -39,8 +39,9 @@ func (p *Project) Descriptor() *TupleDesc {
 	fields := make([]FieldType, len(p.selectFields))
 	for i, expr := range p.selectFields {
 		fields[i] = FieldType{
-			Fname: p.outputNames[i],
-			Ftype: expr.GetExprType().Ftype,
+			Fname:          p.outputNames[i],
+			TableQualifier: expr.GetExprType().TableQualifier,
+			Ftype:          expr.GetExprType().Ftype,
 		}
 	}
 

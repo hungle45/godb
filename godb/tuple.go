@@ -55,7 +55,7 @@ func (td *TupleDesc) equals(other *TupleDesc) bool {
 	}
 	for i, f1 := range td.Fields {
 		f2 := other.Fields[i]
-		if f1.Fname != f2.Fname || f1.Ftype != f2.Ftype || f1.TableQualifier != f2.TableQualifier {
+		if f1.Fname != f2.Fname || f1.Ftype != f2.Ftype {
 			return false
 		}
 	}
@@ -298,9 +298,7 @@ func joinTuples(t1 *Tuple, t2 *Tuple) *Tuple {
 	}
 
 	return &Tuple{
-		Desc: TupleDesc{
-			Fields: append(t1.Desc.Fields, t2.Desc.Fields...),
-		},
+		Desc:   *t1.Desc.merge(&t2.Desc),
 		Fields: append(t1.Fields, t2.Fields...),
 	}
 }
@@ -366,6 +364,7 @@ func (t *Tuple) project(fields []FieldType) (*Tuple, error) {
 			return nil, err
 		}
 		result.Fields = append(result.Fields, t.Fields[fieldID])
+		result.Desc.Fields = append(result.Desc.Fields, t.Desc.Fields[fieldID])
 	}
 	return result, nil
 }
