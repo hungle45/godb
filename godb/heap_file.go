@@ -107,12 +107,10 @@ func (f *HeapFile) LoadFromCSV(file *os.File, hasHeader bool, sep string, skipLa
 		newT := Tuple{*f.Descriptor(), newFields, nil}
 		tid := NewTID()
 		bp := f.bufPool
-		f.insertTuple(&newT, tid)
 
-		// Force dirty pool to disk. CommitTransaction may not be implemented
-		// yet if this is called in lab 1 or 2.
-		bp.FlushAllPages()
-
+		_ = bp.BeginTransaction(tid)
+		_ = f.insertTuple(&newT, tid)
+		bp.CommitTransaction(tid)
 	}
 	return nil
 }
