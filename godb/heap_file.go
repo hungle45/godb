@@ -191,12 +191,20 @@ func (f *HeapFile) insertTuple(t *Tuple, tid TransactionID) error {
 	if err != nil {
 		return fmt.Errorf("insertTuple: could not create new heapPage: %v", err)
 	}
-	if _, err := newPage.insertTuple(t); err != nil {
-		return fmt.Errorf("insertTuple: could not insert tuple into new heapPage: %v", err)
-	}
-
 	if err := f.flushPage(newPage); err != nil {
 		return fmt.Errorf("insertTuple: could not flush new heapPage to file: %v", err)
+	}
+
+	page, err := f.bufPool.GetPage(f, newPage.pageNo, tid, WritePerm)
+	if err != nil {
+		return fmt.Errorf("insertTuple: could not get new heapPage from buffer pool: %v", err)
+	}
+	hp, ok := page.(*heapPage)
+	if !ok {
+		return fmt.Errorf("insertTuple: new page is not a heapPage")
+	}
+	if _, err := hp.insertTuple(t); err != nil {
+		return fmt.Errorf("insertTuple: could not insert tuple into new heapPage: %v", err)
 	}
 
 	return nil
@@ -228,10 +236,6 @@ func (f *HeapFile) deleteTuple(t *Tuple, tid TransactionID) error {
 	}
 	if err := hp.deleteTuple(rid); err != nil {
 		return fmt.Errorf("deleteTuple: could not delete tuple with rid %v from page %d: %v", rid, rid.PageNo, err)
-	}
-
-	if err := f.flushPage(page); err != nil {
-		return fmt.Errorf("deleteTuple: could not flush page %d after deleting tuple: %v", rid.PageNo, err)
 	}
 	return nil
 }

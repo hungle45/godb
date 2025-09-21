@@ -64,7 +64,7 @@ func (bp *BufferPool) AbortTransaction(tid TransactionID) {
 
 	for _, pageKey := range bp.transLockManager.GetLockedPages(tid) {
 		if page, exists := bp.pool[pageKey]; exists && page.isDirty() {
-			delete(bp.pool, pageKey)
+			bp.evictPage(pageKey)
 		}
 	}
 
@@ -127,7 +127,7 @@ func (bp *BufferPool) GetPage(file DBFile, pageNo int, tid TransactionID, perm R
 	}
 
 	if bp.isFull() {
-		if err = bp.evictPage(); err != nil {
+		if err = bp.freePage(); err != nil {
 			return nil, err
 		}
 	}
@@ -146,21 +146,32 @@ func (bp *BufferPool) isFull() bool {
 	return bp.length == bp.cap
 }
 
-func (bp *BufferPool) evictPage() error {
+func (bp *BufferPool) freePage() error {
 	for key, page := range bp.pool {
 		if !page.isDirty() {
-			delete(bp.pool, key)
-			bp.length--
+			bp.evictPage(key)
 			return nil
 		}
 	}
 	return Error{BufferPoolFullError, fmt.Sprintf("GetPage: page size %d is full, cannot evict dirty pages", bp.cap)}
 }
 
+func (bp *BufferPool) evictPage(pageKey any) {
+	page, exists := bp.pool[pageKey]
+	if !exists {
+		return
+	}
+	if !page.isDirty() {
+		return
+	}
+	delete(bp.pool, pageKey)
+	bp.length--
+}
+
 type transLockManager struct {
-	// map of transaction id to map of page key to lock type
+	// map of transaction id to map of page key to lock type: tranID -> (pageKey -> lockType)
 	tranPageLocks map[TransactionID]map[any]LockType
-	// map of page key to lock
+	// map of page key to lock: pageKey -> lock
 	pageLocks map[any]*sync.RWMutex
 }
 
