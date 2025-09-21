@@ -8,6 +8,7 @@ package godb
 import (
 	"fmt"
 	"sync"
+	"sync/atomic"
 )
 
 // Permissions used to when reading / locking pool
@@ -26,9 +27,10 @@ const (
 )
 
 type BufferPool struct {
-	length           int
-	cap              int
-	pool             map[any]Page
+	length atomic.Int32
+	cap    int32
+	// map of page key to Page
+	pool             sync.Map // map[any]Page
 	runningTIDs      sync.Map
 	poolLock         sync.Mutex
 	transLockManager *transLockManager
@@ -37,8 +39,8 @@ type BufferPool struct {
 // NewBufferPool Create a new BufferPool with the specified number of pool
 func NewBufferPool(numPages int) (*BufferPool, error) {
 	return &BufferPool{
-		cap:              numPages,
-		pool:             make(map[any]Page),
+		cap:              int32(numPages),
+		pool:             sync.Map{},
 		runningTIDs:      sync.Map{},
 		transLockManager: newTransLockManager(),
 		poolLock:         sync.Mutex{},
@@ -49,10 +51,12 @@ func NewBufferPool(numPages int) (*BufferPool, error) {
 // and flush them using [DBFile.flushPage]. Does not need to be thread/transaction safe.
 // Mark pool as not dirty after flushing them.
 func (bp *BufferPool) FlushAllPages() {
-	for _, page := range bp.pool {
+	bp.pool.Range(func(_, rawPage any) bool {
+		page := rawPage.(Page)
 		_ = page.getFile().flushPage(page)
 		page.setDirty(0, false)
-	}
+		return true
+	})
 }
 
 // AbortTransaction Abort the transaction, releasing locks. Because GoDB is FORCE/NO STEAL, none
@@ -63,7 +67,7 @@ func (bp *BufferPool) AbortTransaction(tid TransactionID) {
 	defer bp.poolLock.Unlock()
 
 	for _, pageKey := range bp.transLockManager.GetLockedPages(tid) {
-		if page, exists := bp.pool[pageKey]; exists && page.isDirty() {
+		if page, exists := bp.pool.Load(pageKey); exists && page.(Page).isDirty() {
 			bp.evictPage(pageKey)
 		}
 	}
@@ -82,8 +86,8 @@ func (bp *BufferPool) CommitTransaction(tid TransactionID) {
 	defer bp.poolLock.Unlock()
 
 	for _, pageKey := range bp.transLockManager.GetLockedPages(tid) {
-		if page, exists := bp.pool[pageKey]; exists && page.isDirty() {
-			_ = page.getFile().flushPage(page)
+		if page, exists := bp.pool.Load(pageKey); exists && page.(Page).isDirty() {
+			_ = page.(Page).getFile().flushPage(page.(Page))
 		}
 	}
 
@@ -112,18 +116,14 @@ func (bp *BufferPool) BeginTransaction(tid TransactionID) error {
 // implement locking or deadlock detection. You will likely want to store a list
 // of pool in the BufferPool in a map keyed by the [DBFile.pageKey].
 func (bp *BufferPool) GetPage(file DBFile, pageNo int, tid TransactionID, perm RWPerm) (page Page, err error) {
-	for {
-		bp.poolLock.Lock()
-		if err = bp.transLockManager.LockPage(tid, file.pageKey(pageNo), perm); err == nil {
-			bp.poolLock.Unlock()
-			break
-		}
-		bp.poolLock.Unlock()
+	if err = bp.transLockManager.LockPage(tid, file.pageKey(pageNo), perm); err != nil {
+		fmt.Println("GetPage: transaction ", tid, " failed to acquire ", perm, " lock on page ", pageNo, ": ", err)
+		return nil, err
 	}
 
-	print("GetPage: transaction ", tid, " acquired ", perm, " lock on page ", pageNo, "\n")
-	if page, exists := bp.pool[file.pageKey(pageNo)]; exists {
-		return page, nil
+	fmt.Println("GetPage: transaction ", tid, " acquired ", perm, " lock on page ", pageNo)
+	if page, exists := bp.pool.Load(file.pageKey(pageNo)); exists {
+		return page.(Page), nil
 	}
 
 	if bp.isFull() {
@@ -136,58 +136,78 @@ func (bp *BufferPool) GetPage(file DBFile, pageNo int, tid TransactionID, perm R
 		return nil, err
 	}
 
-	bp.pool[file.pageKey(pageNo)] = page
-	bp.length++
+	bp.pool.Store(file.pageKey(pageNo), page)
+	bp.length.Add(1)
 
 	return page, nil
 }
 
 func (bp *BufferPool) isFull() bool {
-	return bp.length == bp.cap
+	return bp.length.Load() == bp.cap
 }
 
 func (bp *BufferPool) freePage() error {
-	for key, page := range bp.pool {
-		if !page.isDirty() {
+	isFull := true
+	bp.pool.Range(func(key, rawPage any) bool {
+		if !rawPage.(Page).isDirty() {
 			bp.evictPage(key)
-			return nil
+			isFull = false
+			return false
 		}
+		return true
+	})
+
+	if isFull {
+		return Error{BufferPoolFullError, fmt.Sprintf("GetPage: page size %d is full, cannot evict dirty pages", bp.cap)}
 	}
-	return Error{BufferPoolFullError, fmt.Sprintf("GetPage: page size %d is full, cannot evict dirty pages", bp.cap)}
+	return nil
 }
 
 func (bp *BufferPool) evictPage(pageKey any) {
-	page, exists := bp.pool[pageKey]
+	page, exists := bp.pool.Load(pageKey)
 	if !exists {
 		return
 	}
-	if !page.isDirty() {
+	if !page.(Page).isDirty() {
 		return
 	}
-	delete(bp.pool, pageKey)
-	bp.length--
+	//delete(bp.pool, pageKey)
+	bp.pool.Delete(pageKey)
+	bp.length.Add(-1)
 }
 
 type transLockManager struct {
 	// map of transaction id to map of page key to lock type: tranID -> (pageKey -> lockType)
-	tranPageLocks map[TransactionID]map[any]LockType
+	tranPageLocks sync.Map // map[TransactionID]map[any]LockType
 	// map of page key to lock: pageKey -> lock
 	pageLocks map[any]*sync.RWMutex
+	// wait-for graph for deadlock detection: tid1 -> (tid2, tid3) means tid1 is waiting for tid2 and tid3
+	waitForGraph sync.Map // map[TransactionID]map[TransactionID]struct{}
+	// lock to allow concurrent access to the transLockManager
+	lock sync.Mutex
 }
 
 func newTransLockManager() *transLockManager {
 	return &transLockManager{
-		tranPageLocks: make(map[TransactionID]map[any]LockType),
+		tranPageLocks: sync.Map{},
 		pageLocks:     make(map[any]*sync.RWMutex),
+		waitForGraph:  sync.Map{},
+		lock:          sync.Mutex{},
 	}
 }
 
 func (m *transLockManager) LockPage(tid TransactionID, pageKey any, perm RWPerm) error {
-	if _, exists := m.tranPageLocks[tid]; !exists {
-		m.tranPageLocks[tid] = make(map[any]LockType)
+	if m.detectDeadlock(tid, pageKey, perm) {
+		return Error{DeadlockError, fmt.Sprintf("LockPage: deadlock detected for transaction %d on page %v with permission %d", tid, pageKey, perm)}
 	}
+	defer func() {
+		m.waitForGraph.Delete(tid)
+	}()
 
-	if lockType, locked := m.tranPageLocks[tid][pageKey]; locked {
+	rawPageLockTypeMap, _ := m.tranPageLocks.LoadOrStore(tid, make(map[any]LockType))
+	pageLockTypeMap := rawPageLockTypeMap.(map[any]LockType)
+
+	if lockType, locked := pageLockTypeMap[pageKey]; locked {
 		// already have the lock
 		if lockType == ExclusiveLockType || (lockType == SharedLockType && perm == ReadPerm) {
 			return nil
@@ -199,7 +219,7 @@ func (m *transLockManager) LockPage(tid TransactionID, pageKey any, perm RWPerm)
 		}
 		lock.RUnlock()
 		lock.Lock()
-		m.tranPageLocks[tid][pageKey] = ExclusiveLockType
+		pageLockTypeMap[pageKey] = ExclusiveLockType
 		return nil
 	}
 
@@ -212,10 +232,10 @@ func (m *transLockManager) LockPage(tid TransactionID, pageKey any, perm RWPerm)
 	switch perm {
 	case ReadPerm:
 		lock.RLock()
-		m.tranPageLocks[tid][pageKey] = SharedLockType
+		pageLockTypeMap[pageKey] = SharedLockType
 	case WritePerm:
 		lock.Lock()
-		m.tranPageLocks[tid][pageKey] = ExclusiveLockType
+		pageLockTypeMap[pageKey] = ExclusiveLockType
 	default:
 		return fmt.Errorf("LockPage: unknown permission %d", perm)
 	}
@@ -224,10 +244,11 @@ func (m *transLockManager) LockPage(tid TransactionID, pageKey any, perm RWPerm)
 }
 
 func (m *transLockManager) UnlockAllPages(tid TransactionID) {
-	pages, exists := m.tranPageLocks[tid]
+	rawPages, exists := m.tranPageLocks.Load(tid)
 	if !exists {
 		return
 	}
+	pages := rawPages.(map[any]LockType)
 
 	for pageKey, lockType := range pages {
 		lock, exists := m.pageLocks[pageKey]
@@ -242,18 +263,76 @@ func (m *transLockManager) UnlockAllPages(tid TransactionID) {
 			lock.RUnlock()
 		}
 	}
-	delete(m.tranPageLocks, tid)
+	m.tranPageLocks.Delete(tid)
 }
 
 func (m *transLockManager) GetLockedPages(tid TransactionID) []any {
-	pages, exists := m.tranPageLocks[tid]
+	rawPages, exists := m.tranPageLocks.Load(tid)
 	if !exists {
 		return []any{}
 	}
+	pages := rawPages.(map[any]LockType)
 
 	pageKeys := make([]any, 0, len(pages))
 	for pageKey := range pages {
 		pageKeys = append(pageKeys, pageKey)
 	}
 	return pageKeys
+}
+
+func (m *transLockManager) detectDeadlock(tid TransactionID, pageKey any, perm RWPerm) bool {
+	markWaitForTIDs(m, tid, pageKey, perm)
+	return hasCycleInWaitForGraph(m, tid)
+}
+
+func markWaitForTIDs(m *transLockManager, tid TransactionID, pageKey any, perm RWPerm) {
+	rawWaitForTIDs, _ := m.waitForGraph.LoadOrStore(tid, make(map[TransactionID]struct{}))
+	waitForTIDs := rawWaitForTIDs.(map[TransactionID]struct{})
+
+	m.tranPageLocks.Range(func(otherTid, rawPageLockTypeMap interface{}) bool {
+		if otherTid == tid {
+			return true
+		}
+
+		pageLockTypeMap := rawPageLockTypeMap.(map[any]LockType)
+		lockType, locked := pageLockTypeMap[pageKey]
+		if !locked {
+			return true
+		}
+
+		switch lockType {
+		case SharedLockType:
+			if perm == WritePerm {
+				waitForTIDs[otherTid.(TransactionID)] = struct{}{}
+			}
+		case ExclusiveLockType:
+			waitForTIDs[otherTid.(TransactionID)] = struct{}{}
+		}
+		return true
+	})
+}
+
+func hasCycleInWaitForGraph(m *transLockManager, tid TransactionID) bool {
+	visited := make(map[TransactionID]bool)
+	var visit func(TransactionID) bool
+	visit = func(t TransactionID) bool {
+		if visited[t] {
+			return true
+		}
+		visited[t] = true
+		rawNeighbors, exists := m.waitForGraph.Load(t)
+		if !exists {
+			visited[t] = false
+			return false
+		}
+		neighbors := rawNeighbors.(map[TransactionID]struct{})
+		for neighbor := range neighbors {
+			if visit(neighbor) {
+				return true
+			}
+		}
+		visited[t] = false
+		return false
+	}
+	return visit(tid)
 }

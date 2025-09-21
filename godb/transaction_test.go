@@ -370,6 +370,7 @@ func TestTransactionFiveThreads(t *testing.T) {
 	validateTransactions(t, 5)
 }
 
+// NOTE: This test is not correct because the read operation performed by the transaction owning the dirty pages should always succeed.
 func TestTransactionAllDirtyFails(t *testing.T) {
 	if os.Getenv("LAB") == "5" {
 		t.Skip("Test is valid up through Lab 4. Skipping.")
